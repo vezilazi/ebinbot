@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-import youtube_dl
+import yt_dlp as youtube_dl
 import asyncio
 
 # Suppress noise about console usage from errors
@@ -18,7 +18,18 @@ ytdl_format_options = {
     'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
-    'source_address': '0.0.0.0' # ipv6 addresses cause issues sometimes
+    'source_address': '0.0.0.0', # ipv6 addresses cause issues sometimes
+    'postprocessors': [
+        {
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        },
+        {
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }
+    ],
 }
 
 ffmpeg_options = {
@@ -40,14 +51,23 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
         loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
-        
-        if 'entries' in data:
-            # take first item from a playlist
-            data = data['entries'][0]
-        
-        filename = data['url'] if stream else ytdl.prepare_filename(data)
-        return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+        try:
+            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+
+            if 'entries' in data:
+                # take the first item from a playlist
+                data = data['entries'][0]
+
+            if 'url' in data:
+                audio_source = discord.FFmpegPCMAudio(data['url'], **ffmpeg_options, executable="ffmpeg")
+                if audio_source:
+                    return cls(audio_source, data=data)
+                else:
+                    raise RuntimeError("Audio source is None")
+            else:
+                raise RuntimeError("No 'url' found in the data")
+        except Exception as e:
+            print(f"Exception during extraction: {e}")
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -84,53 +104,42 @@ class Music(commands.Cog):
             embed = discord.Embed(title="Error", description="You must be connected to a voice channel.", color=0xff0000)
             await ctx.send(embed=embed)
             return
-        self.voice_channel = ctx.author.voice.channel
-        if ctx.voice_client is None:
-            self.voice_client = await self.voice_channel.connect()
-        else:
+
+        self.voice_channel = ctx.author.voice.channel  # Set the voice channel attribute
+
+        if ctx.voice_client is not None and ctx.voice_client.is_connected():
             await ctx.voice_client.move_to(self.voice_channel)
+        else:
+            self.voice_client = await self.voice_channel.connect()
 
     @commands.command()
-    async def play(self, ctx, *, query):
-        """Plays a file from the local filesystem"""
-
-        if not query:
-            embed = discord.Embed(title="Error", description="You must provide a query.", color=0xff0000)
-            await ctx.send(embed=embed)
-            return
-
-        source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(query))
-        ctx.voice_client.play(source, after=lambda e: print('Player error: %s' % e) if e else None)
-
-        embed = discord.Embed(title="Playing", description="Now playing: {}".format(query), color=0x00ff00)
-        await ctx.send(embed=embed)
-    
-    @commands.command()
-    async def yt(self, ctx, *, url):
-        """Plays from a url (almost anything youtube_dl supports)"""
-
-        async with ctx.typing():
-            player = await YTDLSource.from_url(url, loop=self.bot.loop)
-            ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
-        
-        embed = discord.Embed(title="Playing", description="Now playing: {}".format(player.title), color=0x00ff00)
-        await ctx.send(embed=embed)
-    
-    @commands.command()
-    async def stream(self, ctx, *, url):
-        """Streams from a url (same as yt, but doesn't predownload)"""
+    async def play(self, ctx, *, url):
+        """Plays a song"""
 
         async with ctx.typing():
             player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
             self.queue.append(player)
-        
+
         embed = discord.Embed(title="Queued", description="Queued: {}".format(player.title), color=0x00ff00)
         await ctx.send(embed=embed)
 
         if not self.is_playing:
             self.is_playing = True
             self.current_song = self.queue.pop(0)
-            self.voice_client.play(self.current_song, after=lambda e: self.play_next_song())
+
+            # Check if the bot is connected to a voice channel
+            if self.voice_client is not None:
+                # Check if the voice client is in a valid state
+                if self.voice_client.is_connected() and not self.voice_client.is_playing():
+                    self.voice_client.play(self.current_song, after=lambda e: self.play_next_song())
+                else:
+                    # Reconnect to the channel if the client is not in a valid state
+                    self.voice_client = await self.voice_channel.connect()
+                    self.voice_client.play(self.current_song, after=lambda e: self.play_next_song())
+            else:
+                # Connect to the channel if the client is None
+                self.voice_client = await self.voice_channel.connect()
+                self.voice_client.play(self.current_song, after=lambda e: self.play_next_song())
     
     @commands.command()
     async def volume(self, ctx, volume: int):
@@ -274,8 +283,6 @@ class Music(commands.Cog):
             await ctx.send(embed=embed)
     
     @play.before_invoke
-    @yt.before_invoke
-    @stream.before_invoke
     async def ensure_voice(self, ctx):
         if ctx.voice_client is None:
             if ctx.author.voice:
