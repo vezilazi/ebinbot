@@ -40,7 +40,7 @@ class HelpCommand(commands.HelpCommand):
 
     async def send_command_help(self, cmd):
         desc = \
-        f"name: {cmd.name}\ncog: {cmd.cog_name}\ndescription:\n {cmd.help or cmd.short_doc}\n\n" \
+        f"name: {cmd.name}\ncog: {cmd.cog_name}\ndescription:\n {cmd.help or cmd.short_doc or 'no description'}\n\n" \
         f"aliases:\n - {', '.join(cmd.aliases) if cmd.aliases else 'none'}\n\n" \
         f"usage: {cmd.name} {cmd.signature}"
 
