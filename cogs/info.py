@@ -147,7 +147,7 @@ class Info(commands.Cog):
 
         embed = discord.Embed(title=f"Info for {role.name}", colour=role.colour)
         embed.set_author(**requested(ctx))
-        embed.description = f"```yaml\---\n{created}\n---\n{members}\n---\n{attrs}\n---\n```"
+        embed.description = f"```yaml\n---\n{created}\n---\n{members}\n---\n{attrs}\n---\n```"
         await ctx.send(embed=embed)
 
     @commands.command(aliases=["server", "guild", "guildinfo"])

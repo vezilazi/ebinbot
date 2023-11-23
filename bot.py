@@ -60,10 +60,11 @@ class Bot(commands.Bot):
     def __init__(self) -> None:
         self.config = utils.get_config()
         super().__init__(
-            command_prefix=commands.when_mentioned_or(*self.config["prefix"]),
+            command_prefix=commands.when_mentioned_or(self.config["prefix"]),
             case_insensitive=True,
             intents=intents,
         )
+        self.default_prefix = self.config["prefix"]
         self.remove_command("help")
         self.checks = utils.checks(self)
         self.logger = logger
@@ -88,9 +89,10 @@ class Bot(commands.Bot):
         self.invite = self.config["invite_link"]
         await self.load_extensions()
         activity = discord.Activity(
-            type=discord.ActivityType.watching, name=f"{self.command_prefix}help"
+            type=discord.ActivityType.watching, name=f"{self.default_prefix}help"
         )
         await self.change_presence(status=discord.Status.dnd, activity=activity)
+        self.logger.info(f"Activity set to {activity}!")
 
 
 if __name__ == "__main__":
