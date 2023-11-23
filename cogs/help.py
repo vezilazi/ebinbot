@@ -1,6 +1,7 @@
 from typing import Any, List, Mapping, Optional
 import discord
 from discord.ext import commands
+from discord.ext.commands import Context
 from discord.ext.commands.cog import Cog
 from discord.ext.commands.core import Command
 import utils
@@ -17,7 +18,7 @@ class HelpCommand(commands.HelpCommand):
             name = cog.qualified_name
             cmds = await self.filter_commands(cmds, sort=True)
 
-            desc.append(f"{cog.qualified_name}: {len(cmds)} commands")
+            desc.append(f"{name}: {len(cmds)} commands")
 
         desc = "\n-\n".join(desc)
 
@@ -26,7 +27,7 @@ class HelpCommand(commands.HelpCommand):
         embed.set_footer(text=f"Use {self.context.prefix}{self.invoked_with} [cog] to learn more about a cog and its commands.")
         await self.get_destination().send(embed=embed)
 
-    async def send_group_help(self, group):
+    async def send_group_help(self, group, context: Context):
         desc = ""
         cmds = await self.filter_commands(group.commands, sort=True)
         for c in cmds:
@@ -34,7 +35,7 @@ class HelpCommand(commands.HelpCommand):
 
         embed = discord.Embed(title=f"Help for {group.qualified_name}")
         embed.description = f"```yaml\n---\n{desc}\n---\n```"
-        embed.set_footer(text=f"Use {self.clean_prefix}{self.invoked_with} [command] to learn more about a command.")
+        embed.set_footer(text=f"Use {context.clean_prefix}{self.invoked_with} [command] to learn more about a command.")
         await self.get_destination().send(embed=embed)
 
     async def send_command_help(self, cmd):
@@ -53,7 +54,7 @@ class HelpCommand(commands.HelpCommand):
         cmds = "\n-\n".join(f"{cmd.name}: {cmd.help}" for cmd in cmds)
         embed = discord.Embed(title=f"Help for {cog.qualified_name}")
         embed.description = f"```yaml\n---\n{cmds}\n---\n```"
-        embed.set_footer(text=f"Use {self.clean_prefix}{self.invoked_with} [command] to learn more about a command.")
+        embed.set_footer(text=f"Use {self.context.prefix}{self.invoked_with} [command] to learn more about a command.")
         await self.get_destination().send(embed=embed)
 
 
