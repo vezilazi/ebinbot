@@ -42,12 +42,10 @@ ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
         super().__init__(source, volume)
-
         self.data = data
-
         self.title = data.get('title')
         self.url = data.get('url')
-    
+
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
         loop = loop or asyncio.get_event_loop()
@@ -69,6 +67,24 @@ class YTDLSource(discord.PCMVolumeTransformer):
         except Exception as e:
             print(f"Exception during extraction: {e}")
 
+    @classmethod
+    async def get_next_song(cls, url, loop=None):
+        loop = loop or asyncio.get_event_loop()
+        try:
+            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
+
+            if 'entries' in data:
+                # take the first item from a playlist
+                data = data['entries'][0]
+
+            if 'url' in data:
+                return data['url']
+            else:
+                raise RuntimeError("No 'url' found in the data")
+        except Exception as e:
+            print(f"Exception during extraction: {e}")
+
+
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -87,16 +103,17 @@ class Music(commands.Cog):
             self.voice_client.play(self.current_song, after=lambda e: self.play_next_song())
         else:
             self.is_playing = False
-    
+
     def play_next_song(self):
         if self.loop:
             self.queue.append(self.current_song)
         if len(self.queue) > 0:
             self.is_playing = True
             self.current_song = self.queue.pop(0)
-            self.voice_client.play(self.current_song, after=lambda e: self.play_next_song())
+            self.voice_client.play(self.current_song.source, after=lambda e: self.play_next_song())
         else:
             self.is_playing = False
+            print(self.current_song.source)
     
     @commands.command()
     async def join(self, ctx):
@@ -107,9 +124,22 @@ class Music(commands.Cog):
 
         self.voice_channel = ctx.author.voice.channel  # Set the voice channel attribute
 
-        if ctx.voice_client is not None and ctx.voice_client.is_connected():
-            await ctx.voice_client.move_to(self.voice_channel)
+        if ctx.voice_client is not None:
+            if ctx.voice_client.is_connected():
+                # If the bot is already connected, and in the correct channel, inform the user
+                if ctx.voice_client.channel == self.voice_channel:
+                    embed = discord.Embed(title="Info", description="I'm already in your voice channel.", color=0x00ff00)
+                    await ctx.send(embed=embed)
+                    return
+                else:
+                    # If the bot is connected but in a different channel, disconnect and connect to the new channel
+                    await ctx.voice_client.disconnect()
+                    self.voice_client = await self.voice_channel.connect()
+            else:
+                # If the bot is not connected, connect to the new channel
+                self.voice_client = await self.voice_channel.connect()
         else:
+            # If the voice client is None, meaning the bot is not connected to any channel, connect to the specified channel
             self.voice_client = await self.voice_channel.connect()
 
     @commands.command()
@@ -117,7 +147,8 @@ class Music(commands.Cog):
         """Plays a song"""
 
         async with ctx.typing():
-            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            audio_url = await YTDLSource.get_next_song(url, loop=self.bot.loop)
+            player = await YTDLSource.from_url(audio_url, loop=self.bot.loop, stream=True)
             self.queue.append(player)
 
         embed = discord.Embed(title="Queued", description="Queued: {}".format(player.title), color=0x00ff00)
@@ -176,16 +207,16 @@ class Music(commands.Cog):
     async def pause(self, ctx):
         """Pauses the current song"""
 
-        ctx.voice_client.pause()
-        embed = discord.Embed(title="Paused", description="Paused the current song.", color=0x00ff00)
-        await ctx.send(embed=embed)
-    
-    @commands.command()
-    async def resume(self, ctx):
-        """Resumes the current song"""
+        if ctx.voice_client.is_playing():
+            ctx.voice_client.pause()
+            embed = discord.Embed(title="Paused", description="Paused the current song.", color=0x00ff00)
+            await ctx.send(embed=embed)
+        elif ctx.voice_client.is_paused():
+            ctx.voice_client.resume()
+            embed = discord.Embed(title="Resumed", description="Resumed the current song.", color=0x00ff00)
+        else:
+            embed = discord.Embed(title="Error", description="Not playing anything.", color=0xff0000)
 
-        ctx.voice_client.resume()
-        embed = discord.Embed(title="Resumed", description="Resumed the current song.", color=0x00ff00)
         await ctx.send(embed=embed)
     
     @commands.command()
