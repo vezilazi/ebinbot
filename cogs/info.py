@@ -52,6 +52,13 @@ class Info(commands.Cog):
 
     @commands.command(aliases=["rperms"])
     async def roleperms(self, ctx, *, role: discord.Role):
+        """
+        Retrieves and displays the permissions for a given role.
+
+        Parameters:
+        - ctx (discord.ext.commands.Context): The context of the command.
+        - role (discord.Role): The role to retrieve permissions for.
+        """
         perms = role.permissions
 
         message = ""
@@ -69,6 +76,16 @@ class Info(commands.Cog):
 
     @commands.command(aliases=["roles"])
     async def rolestats(self, ctx):
+        """
+        Command to display role statistics for a guild.
+
+        Parameters:
+        - ctx: The context object representing the invocation of the command.
+
+        This command retrieves the roles in the guild and displays their statistics,
+        including the number of members in each role and the percentage of members
+        in the role compared to the total number of members in the guild.
+        """
         roles = ctx.guild.roles
         role_groups = separate(roles, 30)
         for i, rg in enumerate(role_groups):
@@ -99,6 +116,13 @@ class Info(commands.Cog):
     @commands.command(aliases=["who"])
     @commands.guild_only()
     async def whois(self, ctx, *, member: discord.Member = None):
+        """
+        Retrieves information about a member.
+
+        Parameters:
+        - ctx (discord.Context): The context of the command.
+        - member (discord.Member, optional): The member to retrieve information about. Defaults to the author of the command.
+        """
         member = member or ctx.author
 
         now = dt.utcnow()
@@ -139,6 +163,13 @@ class Info(commands.Cog):
     @commands.command(aliases=["role"])
     @commands.guild_only()
     async def roleinfo(self, ctx, *, role: discord.Role):
+        """
+        Retrieves information about a specific role.
+
+        Parameters:
+        - ctx (discord.Context): The context of the command.
+        - role (discord.Role): The role to retrieve information about.
+        """
         created = f"created: {dt_format(role.created_at)} (~{(dt.utcnow() - role.created_at).days} days)"
         members, percentage = len(role.members), len(role.members) / len(ctx.guild.members) * 100
         members = f"members: {members} | {percentage:.2f}%"

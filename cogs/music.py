@@ -48,6 +48,21 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
+        """
+        Create an instance of the class from a given URL.
+
+        Parameters:
+        - url (str): The URL of the audio source.
+        - loop (asyncio.AbstractEventLoop, optional): The event loop to use. Defaults to None.
+        - stream (bool, optional): Whether to stream the audio or download it. Defaults to False.
+
+        Returns:
+        - cls: An instance of the class.
+
+        Raises:
+        - RuntimeError: If the audio source is None or if no 'url' is found in the data.
+        - Exception: If an exception occurs during extraction.
+        """
         loop = loop or asyncio.get_event_loop()
         try:
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
@@ -69,6 +84,20 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def get_next_song(cls, url, loop=None):
+        """
+        Get the next song from a given URL.
+
+        Parameters:
+        - url (str): The URL of the audio source.
+        - loop (asyncio.AbstractEventLoop, optional): The event loop to use. Defaults to None.
+        
+        Returns:
+        - str: The URL of the next song.
+
+        Raises:
+        - RuntimeError: If no 'url' is found in the data.
+        - Exception: If an exception occurs during extraction.
+        """
         loop = loop or asyncio.get_event_loop()
         try:
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
@@ -97,6 +126,15 @@ class Music(commands.Cog):
         self.loop = False
 
     def check_queue(self):
+        """
+        Checks if the queue is empty.
+
+        If the queue is not empty, the next song is played and removed from the queue.
+        If the queue is empty, the is_playing flag is set to False.
+
+        Raises:
+        - RuntimeError: If the voice client is None.
+        """
         if len(self.queue) > 0:
             self.is_playing = True
             self.current_song = self.queue.pop(0)
@@ -105,6 +143,13 @@ class Music(commands.Cog):
             self.is_playing = False
 
     def play_next_song(self):
+        """
+        Plays the next song in the queue.
+
+        If the loop is enabled, the current song is appended back to the queue.
+        If the queue is not empty, the next song is played and removed from the queue.
+        If the queue is empty, the is_playing flag is set to False.
+        """
         if self.loop:
             self.queue.append(self.current_song)
         if len(self.queue) > 0:

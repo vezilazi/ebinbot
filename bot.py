@@ -9,14 +9,31 @@ intents.message_content = True
 
 
 class LoggingFormatter(logging.Formatter):
-    # Colors
+    """
+    A custom logging formatter that adds color and styling to log messages.
+
+    Attributes:
+        black (str): ANSI escape code for black color.
+        red (str): ANSI escape code for red color.
+        green (str): ANSI escape code for green color.
+        yellow (str): ANSI escape code for yellow color.
+        blue (str): ANSI escape code for blue color.
+        gray (str): ANSI escape code for gray color.
+        reset (str): ANSI escape code to reset color and styling.
+        bold (str): ANSI escape code for bold styling.
+        COLORS (dict): Mapping of log levels to color codes.
+
+    Methods:
+        format(record): Formats the log record with color and styling.
+
+    """
+
     black = "\033[30m"
     red = "\033[31m"
     green = "\033[32m"
     yellow = "\033[33m"
     blue = "\033[34m"
     gray = "\033[37m"
-    # Styles
     reset = "\033[0m"
     bold = "\033[1m"
 
@@ -29,6 +46,16 @@ class LoggingFormatter(logging.Formatter):
     }
 
     def format(self, record):
+        """
+        Formats the log record with color and styling.
+
+        Args:
+            record (logging.LogRecord): The log record to format.
+
+        Returns:
+            str: The formatted log message.
+
+        """
         log_color = self.COLORS[record.levelno]
         format = "(black){asctime}(reset) (levelcolor){levelname:<8}(reset) (green){name}(reset) {message}"
         format = format.replace("(black)", self.black + self.bold)
