@@ -1,5 +1,6 @@
 # Custom
 dev/
+dev-lnx/
 *.exe
 config/*.json
 
